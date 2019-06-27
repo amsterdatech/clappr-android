@@ -68,6 +68,8 @@ open class Player(
         )
     }
 
+    private var receiver: BroadcastReceiver? = null
+
     /**
      * Player state
      */
@@ -365,7 +367,7 @@ open class Player(
         if (isInPictureInPictureMode) {
             play()
 
-            val receiver = object : BroadcastReceiver() {
+            receiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context, intent: Intent?) {
                     if (intent == null || "media_control" != intent.action) return
 
@@ -385,6 +387,8 @@ open class Player(
             }
 
             activity.registerReceiver(receiver, IntentFilter("media_control"))
+        } else {
+            receiver?.let { activity.unregisterReceiver(it) }
         }
 
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
