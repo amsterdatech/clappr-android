@@ -5,13 +5,17 @@ import android.app.Fragment
 import android.app.PendingIntent
 import android.app.PictureInPictureParams
 import android.app.RemoteAction
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.res.Configuration
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
+import android.support.annotation.DrawableRes
+import android.support.annotation.RequiresApi
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -24,7 +28,6 @@ import io.clappr.player.plugin.PlaybackConfig
 import io.clappr.player.plugin.PluginConfig
 import io.clappr.player.plugin.core.externalinput.ExternalInputDevice
 import io.clappr.player.plugin.core.externalinput.ExternalInputPlugin
-
 
 
 /**
@@ -191,6 +194,17 @@ open class Player(
     private val coreEventsIds = mutableSetOf<String>()
 
     private var playerViewGroup: ViewGroup? = null
+
+    //TODO: Update actions when playback ends
+    private val playAction by lazy { createRemoteAction(R.drawable.exo_controls_play, "Play", 1, 1) }
+
+    private val pauseAction by lazy { createRemoteAction(R.drawable.exo_icon_pause, "Pause", 2, 2) }
+
+    private val rewindAction by lazy { createRemoteAction(R.drawable.exo_icon_rewind, "Rewind", 3, 3) }
+
+    private val fastFowardAction by lazy { createRemoteAction(R.drawable.exo_icon_fastforward, "Fast Foward", 4, 4) }
+
+    private val pipParametersBuilder by lazy @RequiresApi(Build.VERSION_CODES.O) { PictureInPictureParams.Builder() }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         playerViewGroup = inflater.inflate(R.layout.player_fragment, container, false) as ViewGroup
@@ -374,19 +388,20 @@ open class Player(
 
                     when (intent.getIntExtra("control_type", 0)) {
                         1 -> {
-                            when(state) {
-                                State.PLAYING -> pause()
-                                State.PAUSED, State.IDLE -> play()
-                                else -> {}
-                            }
+                            play()
+                            updatePictureInPictureAction(state)
                         }
                         2 -> {
-                            seek(Math.min(duration, position + 10).toInt())
+                            pause()
+                            updatePictureInPictureAction(state)
+                        }
+                        3 -> seek(Math.min(duration, position - 10).toInt()) //TODO: check for miminal duration
+                        4 -> seek(Math.min(duration, position + 10).toInt())
+                        else -> {
                         }
                     }
                 }
             }
-
             activity.registerReceiver(receiver, IntentFilter("media_control"))
         } else {
             core?.trigger(Event.DID_EXIT_PIP.value)
@@ -402,15 +417,25 @@ open class Player(
     }
 
     @TargetApi(Build.VERSION_CODES.O)
-    private fun createPipParameters() : PictureInPictureParams {
-        val playIntent = Intent("media_control").putExtra("control_type", 1)
-        val playPendingIntent = PendingIntent.getBroadcast(activity, 1, playIntent, PendingIntent.FLAG_UPDATE_CURRENT)
-        val playAction = RemoteAction(Icon.createWithResource(context, R.drawable.exo_controls_play), "Play", "Play", playPendingIntent)
+    private fun createPipParameters(): PictureInPictureParams {
+        return pipParametersBuilder.setActions(listOf(rewindAction, pauseAction, fastFowardAction)).build()
+    }
 
-        val fastForwardIntent = Intent("media_control").putExtra("control_type", 2)
-        val fastForwardPendingIntent = PendingIntent.getBroadcast(activity, 2, fastForwardIntent, PendingIntent.FLAG_UPDATE_CURRENT)
-        val fastForwardAction = RemoteAction(Icon.createWithResource(context, R.drawable.exo_icon_fastforward), "Fast Forward", "Fast Forward", fastForwardPendingIntent)
+    @TargetApi(Build.VERSION_CODES.O)
+    private fun createRemoteAction(@DrawableRes iconId: Int, title: String, controlType: Int, requestCode: Int): RemoteAction {
+        val intent = Intent("media_control").putExtra("control_type", controlType)
+        val pendingIntent = PendingIntent.getBroadcast(activity, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT)
 
-        return PictureInPictureParams.Builder().setActions(mutableListOf(playAction, fastForwardAction)).build()
+        return RemoteAction(Icon.createWithResource(context, iconId), title, title, pendingIntent)
+    }
+
+    @TargetApi(Build.VERSION_CODES.O)
+    private fun updatePictureInPictureAction(state: State) {
+        val middleAction = when (state) {
+            State.PLAYING -> pauseAction
+            else -> playAction
+        }
+        pipParametersBuilder.setActions(listOf(rewindAction, middleAction, fastFowardAction))
+        activity.setPictureInPictureParams(pipParametersBuilder.build())
     }
 }
