@@ -1,10 +1,16 @@
 package io.clappr.player.app
 
 import android.app.Activity
+import android.app.PendingIntent
+import android.app.PictureInPictureParams
+import android.app.RemoteAction
+import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -90,8 +96,8 @@ class PlayerActivity : Activity() {
     }
 
     override fun onUserLeaveHint() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            enterPictureInPictureMode()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            player.enterPictureInPictureMode()
         }
     }
 
