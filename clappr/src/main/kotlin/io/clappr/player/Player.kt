@@ -45,82 +45,6 @@ open class Player(
     private val containerEventsToListen: MutableSet<String> = mutableSetOf()
 ) : Fragment(), EventInterface by base {
 
-
-    private enum class PIPAction {
-        PLAY,
-        PAUSE,
-        REWIND,
-        FAST_FORWARD;
-
-        companion object {
-            const val PIP_INTENT_ACTION = "pip_media_control"
-            const val PIP_INTENT_EXTRA = "control_type"
-        }
-    }
-
-    companion object {
-
-
-        init {
-            PluginConfig.register()
-            PlaybackConfig.register()
-        }
-
-        /**
-         * Initialize Player for the application. This method need to be called before any Player instantiation.
-         */
-        @JvmStatic
-        fun initialize(applicationContext: Context) {
-            BaseObject.applicationContext = applicationContext
-        }
-    }
-
-    private val externalInputDevice: ExternalInputDevice?
-        get() = (core?.plugins?.firstOrNull { it.name == ExternalInputPlugin.name }) as? ExternalInputDevice
-
-    init {
-        Event.values().forEach { playbackEventsToListen.add(it.value) }
-        coreEventsToListen.addAll(
-            listOf(
-                Event.REQUEST_FULLSCREEN.value,
-                Event.EXIT_FULLSCREEN.value,
-                Event.MEDIA_OPTIONS_SELECTED.value
-            )
-        )
-    }
-
-    private var receiver: BroadcastReceiver? = null
-
-    /**
-     * Player state
-     */
-    enum class State {
-        /**
-         * Player is uninitialized and not ready.
-         */
-        NONE,
-        /**
-         * Player is ready but no media is loaded.
-         */
-        IDLE,
-        /**
-         * Playing media.
-         */
-        PLAYING,
-        /**
-         * Media playback is paused.
-         */
-        PAUSED,
-        /**
-         * Media playback is stalling.
-         */
-        STALLING,
-        /**
-         * Player or Media error
-         */
-        ERROR
-    }
-
     protected var core: Core? = null
         private set(value) {
             playerViewGroup?.removeView(core?.view)
@@ -176,6 +100,7 @@ open class Player(
      */
     val position: Double
         get() = core?.activePlayback?.position ?: Double.NaN
+
     /**
      * Media duration in seconds.
      */
@@ -205,13 +130,17 @@ open class Player(
                 Playback.State.ERROR -> State.ERROR
             }
 
-    private val playbackEventsIds = mutableSetOf<String>()
 
-    private val containerEventsIds = mutableSetOf<String>()
-
-    private val coreEventsIds = mutableSetOf<String>()
-
+    private var receiver: BroadcastReceiver? = null
     private var playerViewGroup: ViewGroup? = null
+
+    private val externalInputDevice: ExternalInputDevice?
+        get() = (core?.plugins?.firstOrNull { it.name == ExternalInputPlugin.name }) as? ExternalInputDevice
+
+    private val playbackEventsIds = mutableSetOf<String>()
+    private val containerEventsIds = mutableSetOf<String>()
+    private val coreEventsIds = mutableSetOf<String>()
+    private val pipParametersBuilder by lazy @RequiresApi(Build.VERSION_CODES.O) { PictureInPictureParams.Builder() }
 
     private val playAction by lazy @RequiresApi(Build.VERSION_CODES.O) {
         createRemoteAction(R.drawable.exo_controls_play, "Play", PIPAction.PLAY)
@@ -226,7 +155,16 @@ open class Player(
         createRemoteAction(R.drawable.exo_icon_fastforward, "Fast Foward", PIPAction.FAST_FORWARD)
     }
 
-    private val pipParametersBuilder by lazy @RequiresApi(Build.VERSION_CODES.O) { PictureInPictureParams.Builder() }
+    init {
+        Event.values().forEach { playbackEventsToListen.add(it.value) }
+        coreEventsToListen.addAll(
+            listOf(
+                Event.REQUEST_FULLSCREEN.value,
+                Event.EXIT_FULLSCREEN.value,
+                Event.MEDIA_OPTIONS_SELECTED.value
+            )
+        )
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         playerViewGroup = inflater.inflate(R.layout.player_fragment, container, false) as ViewGroup
@@ -468,5 +406,62 @@ open class Player(
         }
         pipParametersBuilder.setActions(listOf(rewindAction, middleAction, fastForwardAction))
         activity.setPictureInPictureParams(pipParametersBuilder.build())
+    }
+
+    private enum class PIPAction {
+        PLAY,
+        PAUSE,
+        REWIND,
+        FAST_FORWARD;
+
+        companion object {
+            const val PIP_INTENT_ACTION = "pip_media_control"
+            const val PIP_INTENT_EXTRA = "control_type"
+        }
+    }
+
+    /**
+     * Player state
+     */
+    enum class State {
+        /**
+         * Player is uninitialized and not ready.
+         */
+        NONE,
+        /**
+         * Player is ready but no media is loaded.
+         */
+        IDLE,
+        /**
+         * Playing media.
+         */
+        PLAYING,
+        /**
+         * Media playback is paused.
+         */
+        PAUSED,
+        /**
+         * Media playback is stalling.
+         */
+        STALLING,
+        /**
+         * Player or Media error
+         */
+        ERROR
+    }
+
+    companion object {
+        init {
+            PluginConfig.register()
+            PlaybackConfig.register()
+        }
+
+        /**
+         * Initialize Player for the application. This method need to be called before any Player instantiation.
+         */
+        @JvmStatic
+        fun initialize(applicationContext: Context) {
+            BaseObject.applicationContext = applicationContext
+        }
     }
 }
