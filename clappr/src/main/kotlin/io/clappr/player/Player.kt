@@ -393,8 +393,8 @@ open class Player(
                             pause()
                             updatePIPParameters()
                         }
-                        REWIND -> seek(min(0.0, position - 10).toInt())
-                        FAST_FORWARD -> seek(min(duration, position + 10).toInt())
+                        REWIND -> seek(min(0.0, position - SEEK_DEFAULT_JUMP_IN_SECONDS).toInt())
+                        FAST_FORWARD -> seek(min(duration, position + SEEK_DEFAULT_JUMP_IN_SECONDS).toInt())
                     }
                 }
             }
@@ -454,6 +454,9 @@ open class Player(
     }
 
     companion object {
+
+        private const val SEEK_DEFAULT_JUMP_IN_SECONDS = 10
+
         init {
             PluginConfig.register()
             PlaybackConfig.register()
