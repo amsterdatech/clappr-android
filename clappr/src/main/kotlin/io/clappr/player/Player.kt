@@ -318,6 +318,12 @@ open class Player(
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
+    fun enterPictureInPictureMode(): Boolean =
+        if (isPIPSupported())
+            activity.enterPictureInPictureMode(createPIPDefaultParameters())
+        else false
+
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onPictureInPictureModeChanged(
         isInPictureInPictureMode: Boolean,
         newConfig: Configuration?
@@ -354,12 +360,6 @@ open class Player(
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    fun enterPictureInPictureMode(): Boolean =
-        if (isPIPSupported())
-            activity.enterPictureInPictureMode(createPIPDefaultParameters())
-        else false
-
     private fun isPIPSupported() =
         activity.packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
 
@@ -367,13 +367,19 @@ open class Player(
     private fun createPIPDefaultParameters(): PictureInPictureParams {
         createRemoteActions()
         return PictureInPictureParams.Builder().setActions(
-            listOf(
-                remoteActions[REWIND],
-                remoteActions[PAUSE],
-                remoteActions[FAST_FORWARD]
-            )
+            remoteActionsFor(state)
         ).build()
     }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun remoteActionsFor(state: State): List<RemoteAction> = listOf(
+        remoteActions[REWIND],
+        when (state) {
+            State.PLAYING -> remoteActions[PAUSE]
+            else -> remoteActions[PLAY]
+        },
+        remoteActions[FAST_FORWARD]
+    ).mapNotNull { it }
 
     @RequiresApi(Build.VERSION_CODES.O)
     private fun createRemoteActions() {
@@ -407,17 +413,11 @@ open class Player(
 
     @RequiresApi(Build.VERSION_CODES.O)
     private fun updateRemoteActions(state: State) {
-        val builder = PictureInPictureParams.Builder().setActions(
-            listOf(
-                remoteActions[REWIND],
-                when (state) {
-                    State.PLAYING -> remoteActions[PAUSE]
-                    else -> remoteActions[PLAY]
-                },
-                remoteActions[FAST_FORWARD]
-            )
+        activity.setPictureInPictureParams(
+            PictureInPictureParams.Builder()
+                .setActions(remoteActionsFor(state))
+                .build()
         )
-        activity.setPictureInPictureParams(builder.build())
     }
 
     private enum class PIPAction {
