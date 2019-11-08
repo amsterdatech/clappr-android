@@ -323,6 +323,57 @@ open class Player(
             activity.enterPictureInPictureMode(createPIPDefaultParameters())
         else false
 
+    private fun isPIPSupported() =
+        activity.packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun createPIPDefaultParameters(): PictureInPictureParams {
+        createRemoteActions()
+        return PictureInPictureParams.Builder().setActions(
+            remoteActionsFor(state)
+        ).build()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun createRemoteActions() {
+        listOf(
+            PLAY to R.drawable.exo_controls_play,
+            PAUSE to R.drawable.exo_icon_pause,
+            REWIND to R.drawable.exo_icon_rewind,
+            FAST_FORWARD to R.drawable.exo_icon_fastforward
+        ).map { (action, icon) ->
+            remoteActions.put(action, createRemoteAction(icon, action))
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun createRemoteAction(@DrawableRes iconId: Int, action: PIPAction): RemoteAction {
+        val intent = Intent(PIP_INTENT_ACTION).putExtra(PIP_INTENT_EXTRA, action.name)
+        val pendingIntent = PendingIntent.getBroadcast(
+            activity,
+            action.ordinal,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        return RemoteAction(
+            Icon.createWithResource(context, iconId),
+            action.name,
+            action.name,
+            pendingIntent
+        )
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun remoteActionsFor(state: State): List<RemoteAction> = listOf(
+        remoteActions[REWIND],
+        when (state) {
+            State.PLAYING -> remoteActions[PAUSE]
+            else -> remoteActions[PLAY]
+        },
+        remoteActions[FAST_FORWARD]
+    ).mapNotNull { it }
+
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onPictureInPictureModeChanged(
         isInPictureInPictureMode: Boolean,
@@ -358,57 +409,6 @@ open class Player(
         }
 
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
-    }
-
-    private fun isPIPSupported() =
-        activity.packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun createPIPDefaultParameters(): PictureInPictureParams {
-        createRemoteActions()
-        return PictureInPictureParams.Builder().setActions(
-            remoteActionsFor(state)
-        ).build()
-    }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun remoteActionsFor(state: State): List<RemoteAction> = listOf(
-        remoteActions[REWIND],
-        when (state) {
-            State.PLAYING -> remoteActions[PAUSE]
-            else -> remoteActions[PLAY]
-        },
-        remoteActions[FAST_FORWARD]
-    ).mapNotNull { it }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun createRemoteActions() {
-        listOf(
-            PLAY to R.drawable.exo_controls_play,
-            PAUSE to R.drawable.exo_icon_pause,
-            REWIND to R.drawable.exo_icon_rewind,
-            FAST_FORWARD to R.drawable.exo_icon_fastforward
-        ).map { (action, icon) ->
-            remoteActions.put(action, createRemoteAction(icon, action))
-        }
-    }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun createRemoteAction(@DrawableRes iconId: Int, action: PIPAction): RemoteAction {
-        val intent = Intent(PIP_INTENT_ACTION).putExtra(PIP_INTENT_EXTRA, action.name)
-        val pendingIntent = PendingIntent.getBroadcast(
-            activity,
-            action.ordinal,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        return RemoteAction(
-            Icon.createWithResource(context, iconId),
-            action.name,
-            action.name,
-            pendingIntent
-        )
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
