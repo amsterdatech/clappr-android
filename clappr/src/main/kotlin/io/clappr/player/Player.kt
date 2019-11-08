@@ -121,7 +121,7 @@ open class Player(
             }
 
 
-    private var receiver: BroadcastReceiver? = null
+    private var remoteActionReceiver: PIPRemoteActionReceiver? = null
     private var playerViewGroup: ViewGroup? = null
 
     private val externalInputDevice: ExternalInputDevice?
@@ -378,34 +378,13 @@ open class Player(
     ) {
         if (isInPictureInPictureMode) {
             core?.trigger(Event.DID_ENTER_PIP.value)
-
-            receiver = object : BroadcastReceiver() {
-                override fun onReceive(context: Context, intent: Intent?) {
-                    if (intent == null || PIP_INTENT_ACTION != intent.action) return
-
-                    val action = PIPAction.valueOf(intent.getStringExtra(PIP_INTENT_EXTRA))
-                    when (action) {
-                        PLAY -> {
-                            play()
-                            updatePIPParameters()
-                        }
-                        PAUSE -> {
-                            pause()
-                            updatePIPParameters()
-                        }
-                        REWIND -> seek(min(0.0, position - SEEK_DEFAULT_JUMP_IN_SECONDS).toInt())
-                        FAST_FORWARD -> seek(min(duration, position + SEEK_DEFAULT_JUMP_IN_SECONDS).toInt())
-                    }
-                }
-            }
-            activity.registerReceiver(receiver, IntentFilter(PIP_INTENT_ACTION))
+            remoteActionReceiver = PIPRemoteActionReceiver()
+            activity.registerReceiver(remoteActionReceiver, IntentFilter(PIP_INTENT_ACTION))
         } else {
             core?.trigger(Event.DID_EXIT_PIP.value)
-            receiver?.let { activity.unregisterReceiver(it) }
-            receiver = null
+            activity.unregisterReceiver(remoteActionReceiver)
+            remoteActionReceiver = null
         }
-
-        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -420,6 +399,27 @@ open class Player(
         companion object {
             const val PIP_INTENT_ACTION = "pip_media_control"
             const val PIP_INTENT_EXTRA = "control_type"
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private inner class PIPRemoteActionReceiver : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent?) {
+            if (intent == null || PIP_INTENT_ACTION != intent.action) return
+
+            val action = PIPAction.valueOf(intent.getStringExtra(PIP_INTENT_EXTRA))
+            when (action) {
+                PLAY -> {
+                    play()
+                    updatePIPParameters()
+                }
+                PAUSE -> {
+                    pause()
+                    updatePIPParameters()
+                }
+                REWIND -> seek(min(0.0, position - SEEK_DEFAULT_JUMP_IN_SECONDS).toInt())
+                FAST_FORWARD -> seek(min(duration, position + SEEK_DEFAULT_JUMP_IN_SECONDS).toInt())
+            }
         }
     }
 
